@@ -12,7 +12,7 @@ li.current {
 }
 </style>
 <script>
-document.addEventListener('DOMContentLoaded', function() {
+(function() {
 	function Theremin(sampleRate) {
 		sampleRate = sampleRate | 0 || 44100;
 		this.sampleRate = sampleRate;
@@ -29,7 +29,7 @@ document.addEventListener('DOMContentLoaded', function() {
 		getNextBuffer: function getNextBuffer(length) {
 			var buffer = new Float32Array(length);
 			var freq = this.frequency;
-			if (!freq)
+			if (!freq || freq < 0)
 				return buffer;
 			var sampleRate = this.audio.mozSampleRate;
 			var volume = this.volume;
@@ -96,7 +96,8 @@ document.addEventListener('DOMContentLoaded', function() {
 			return buffer;
 		},
 		play: function play() {
-			if (!this.paused) return;
+			if (!this.paused)
+				this.pause();
 			this.paused = false;
 
 			var audio = new Audio();
@@ -118,55 +119,21 @@ document.addEventListener('DOMContentLoaded', function() {
 			writeAudio();
 		},
 		pause: function pause() {
+			if (this.paused) return;
+			this.paused = true;
+
 			clearInterval(this.timer);
 			var audio = this.audio;
-			audio.mozWriteAudio(this.getNextBuffer((1 - this.phase) * audio.mozSampleRate / this.freq | 0));
-			this.paused = true;
+			audio.mozWriteAudio(this.getNextBuffer((1 - this.phase) * audio.mozSampleRate / this.frequency | 0));
 		}
 	};
-
-	var theremin = new Theremin();
-	var hz = document.getElementById('hz');
-
-	document.addEventListener('mousedown', function() {
-		theremin.play();
-		hz.textContent = theremin.frequency;
-	}, false);
-	document.addEventListener('mousemove', function(event) {
-		theremin.frequency = 1218 * (Math.exp(event.pageX / window.innerWidth) - 1) | 0;
-		theremin.volume = 1 - event.pageY / window.innerHeight;
-		if (theremin.paused) return;
-		hz.textContent = theremin.frequency;
-	}, false);
-	document.addEventListener('mouseup', function() {
-		theremin.pause();
-	}, false);
-	document.addEventListener('keypress', function(event) {
-		var index = event.which - 49;
-		var waveForm = ['sin', 'tri', 'square', 'saw', 'white', 'pink', 'brown'][index];
-		if (!waveForm) return;
-
-		theremin.waveForm = waveForm;
-		document.querySelector('li.current').classList.remove('current');
-		document.querySelector('ol').children[index].classList.add('current');
-	}, false);
 
 	// http://www.finetune.co.jp/~lyuka/technote/pinknoise/
 	var pinkNoise = (function() {
 		var random = Math.random;
+		var z, k, t;
 
-		var z = [];
-		var k = [];
-		var t = 0;
-
-		for (var i = 0; i < 16; i++)
-			z[i] = 0;
-
-		k[15] = 0.5;
-		for (var i = 15; 0 < i; i--)
-			k[i - 1] = k[i]  * 0.25;
-
-		return function() {
+		function pinkNoise() {
 			var q = random() < 0.5 ? 1 : -1;
 			for (var i = 0; i < 16; i++) {
 				z[i] = (q * k[i] + z[i] * (1 - k[i]));
@@ -174,18 +141,59 @@ document.addEventListener('DOMContentLoaded', function() {
 			}
 			t = q * 0.75 + t * 0.25;
 			return t < 1e-4 ? t * 1e4 : 1;
+		}
+		pinkNoise.init = function() {
+			z = [];
+			k = [];
+			t = 0;
+
+			for (var i = 0; i < 16; i++)
+				z[i] = 0;
+
+			k[15] = 0.5;
+			for (var i = 15; 0 < i; i--)
+				k[i - 1] = k[i]  * 0.25;
 		};
+		pinkNoise.init();
+
+		return pinkNoise;
 	})();
-}, false);
+
+	document.addEventListener('DOMContentLoaded', function() {
+		var theremin = new Theremin();
+		var hz = document.getElementById('hz').firstChild;
+
+		document.addEventListener('mousedown', function() {
+			theremin.play();
+			hz.nodeValue = theremin.frequency;
+		}, false);
+		document.addEventListener('mousemove', function(event) {
+			theremin.frequency = 1220 * (Math.exp(event.pageX / window.innerWidth) - 1) | 0;
+			theremin.volume = 1 - event.pageY / window.innerHeight;
+			if (theremin.paused) return;
+			hz.textContent = theremin.frequency;
+		}, false);
+		document.addEventListener('mouseup', function() {
+			theremin.pause();
+		}, false);
+		document.addEventListener('keypress', function(event) {
+			var index = event.which - 49;
+			var waveForm = ['sin', 'tri', 'square', 'saw', 'white', 'pink', 'brown'][index];
+			if (!waveForm) return;
+
+			theremin.waveForm = waveForm;
+			document.querySelector('li.current').classList.remove('current');
+			document.querySelector('ol').children[index].classList.add('current');
+		}, false);
+	}, false);
+})();
 </script>
 </head>
 <body>
 	<p>
 		<a href="https://wiki.mozilla.org/Audio_Data_API">Audio Data API</a>
-		を使用したデモです。周波数と波形の変更がリアルタイムで音に反映されます。ノイズはおまけクオリティ。
+		を使用したテルミンもどきです。周波数と波形の変更がリアルタイムで音に反映されます。マウスドラッグと数字キーで操作できます。
 	</p>
-	<p>Firefox 4.0b6pre で動作。</p>
-	<p>現状、表示される周波数より 4 ～ 5% 高い音が出ます。。。あとプチノイズ。</p>
 	<ol>
 		<li class="current">sine</li>
 		<li>triangle</li>
