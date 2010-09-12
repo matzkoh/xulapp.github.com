@@ -17,7 +17,7 @@ li.current {
 		sampleRate = sampleRate | 0 || 44100;
 		this.sampleRate = sampleRate;
 		this.frequency = 0;
-		this.volume = 0;
+		this.volume = 1;
 		this.preBufferMsec = 250;
 		this.phase = 0;
 		this.timer = null;
@@ -27,10 +27,11 @@ li.current {
 	Theremin.prototype = {
 		constructor: Theremin,
 		getNextBuffer: function getNextBuffer(length) {
-			var buffer = new Float32Array(length);
+			var buffer = Float32Array(length);
 			var freq = this.frequency;
 			if (!freq || freq < 0)
 				return buffer;
+
 			var sampleRate = this.audio.mozSampleRate;
 			var volume = this.volume;
 			var waveForm = this.waveForm;
@@ -103,6 +104,7 @@ li.current {
 			var audio = new Audio();
 			audio.mozSetup(1, this.sampleRate);
 			this.audio = audio;
+			this.phase = 0;
 			var samplesPerMsec = this.sampleRate / 1000;
 			var rest = 0;
 
@@ -125,8 +127,21 @@ li.current {
 			clearInterval(this.timer);
 			var audio = this.audio;
 			audio.mozWriteAudio(this.getNextBuffer((1 - this.phase) * audio.mozSampleRate / this.frequency | 0));
+			audio.mozWriteAudio(Float32Array(audio.mozSampleRate / 2));
 		}
 	};
+	Theremin.frequencies = (function() {
+		var result = {};
+		var scale = 'C C# D D# E F F# G G# A A# B'.split(' ');
+		for (var i = 0; i < 10; i++) {
+			var oct = result[i] = {};
+			for (var j = 0; j < 12; j++) {
+				var f = 440 * Math.pow(2, ((i - 4) * 12 + (j - 9)) / 12);
+				oct[j] = oct[scale[j]] = result[scale[j] + i] = f;
+			}
+		}
+		return result;
+	})();
 
 	// http://www.finetune.co.jp/~lyuka/technote/pinknoise/
 	var pinkNoise = (function() {
@@ -136,7 +151,7 @@ li.current {
 		function pinkNoise() {
 			var q = random() < 0.5 ? 1 : -1;
 			for (var i = 0; i < 16; i++) {
-				z[i] = (q * k[i] + z[i] * (1 - k[i]));
+				z[i] = q * k[i] + z[i] * (1 - k[i]);
 				q = (q + z[i]) * 0.5;
 			}
 			t = q * 0.75 + t * 0.25;
@@ -163,15 +178,17 @@ li.current {
 		var theremin = new Theremin();
 		var hz = document.getElementById('hz').firstChild;
 
-		document.addEventListener('mousedown', function() {
+		document.addEventListener('mousedown', function(event) {
+			if (event.button) return;
+
 			theremin.play();
 			hz.nodeValue = theremin.frequency;
 		}, false);
 		document.addEventListener('mousemove', function(event) {
-			theremin.frequency = 1220 * (Math.exp(event.pageX / window.innerWidth) - 1) | 0;
+			theremin.frequency = 440 * Math.pow(2, (event.pageX / window.innerWidth - 0.5) * 6) | 0;
 			theremin.volume = 1 - event.pageY / window.innerHeight;
-			if (theremin.paused) return;
-			hz.textContent = theremin.frequency;
+			if (!theremin.paused)
+				hz.textContent = theremin.frequency;
 		}, false);
 		document.addEventListener('mouseup', function() {
 			theremin.pause();
@@ -185,6 +202,30 @@ li.current {
 			document.querySelector('li.current').classList.remove('current');
 			document.querySelector('ol').children[index].classList.add('current');
 		}, false);
+
+		var keyTheres = [];
+		var keyboard = 'AWSEDFTGYHUJKOLPk;ÛÝ'.split('');
+		for (var i = 0; i < keyboard.length; i++) {
+			var t = new Theremin();
+			t.frequency = Theremin.frequencies[4 + i / 12 | 0][i % 12];
+			keyTheres[i] = t;
+		}
+		document.addEventListener('keydown', function(event) {
+			var key = String.fromCharCode(event.which);
+			var t = keyTheres[keyboard.indexOf(key)];
+			if (!t || !t.paused) return;
+
+			t.volume = theremin.volume;
+			t.waveForm = theremin.waveForm;
+			t.play();
+			hz.nodeValue = t.frequency | 0;
+		}, false);
+		document.addEventListener('keyup', function(event) {
+			var key = String.fromCharCode(event.which);
+			var t = keyTheres[keyboard.indexOf(key)];
+			if (t)
+				t.pause();
+		}, false);
 	}, false);
 })();
 </script>
@@ -192,7 +233,9 @@ li.current {
 <body>
 	<p>
 		<a href="https://wiki.mozilla.org/Audio_Data_API">Audio Data API</a>
-		を使用したテルミンもどきです。周波数と波形の変更がリアルタイムで音に反映されます。マウスドラッグと数字キーで操作できます。
+		を使用したテルミンもどきです。
+		マウスドラッグと数字キーで操作できます。
+		また、その他のキーは鍵盤に対応しています。
 	</p>
 	<ol>
 		<li class="current">sine</li>
