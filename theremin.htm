@@ -186,9 +186,9 @@ li.current {
 		}, false);
 		document.addEventListener('mousemove', function(event) {
 			theremin.frequency = 440 * Math.pow(2, (event.pageX / window.innerWidth - 0.5) * 6) | 0;
-			theremin.volume = 1 - event.pageY / window.innerHeight;
+			theremin.volume = Math.pow(10, 2 * Math.log(1 - event.pageY / window.innerHeight) / Math.LN10);
 			if (!theremin.paused)
-				hz.textContent = theremin.frequency;
+				hz.nodeValue = theremin.frequency;
 		}, false);
 		document.addEventListener('mouseup', function() {
 			theremin.pause();
@@ -203,16 +203,16 @@ li.current {
 			document.querySelector('ol').children[index].classList.add('current');
 		}, false);
 
-		var keyTheres = [];
-		var keyboard = 'AWSEDFTGYHUJKOLPk;ÛÝ'.split('');
+		var keyTheres = {};
+		var keyboard = 'AWSEDFTGYHUJKOLPk;ÛÝ';
 		for (var i = 0; i < keyboard.length; i++) {
 			var t = new Theremin();
 			t.frequency = Theremin.frequencies[4 + i / 12 | 0][i % 12];
-			keyTheres[i] = t;
+			keyTheres[keyboard[i]] = t;
 		}
 		document.addEventListener('keydown', function(event) {
 			var key = String.fromCharCode(event.which);
-			var t = keyTheres[keyboard.indexOf(key)];
+			var t = keyTheres[key];
 			if (!t || !t.paused) return;
 
 			t.volume = theremin.volume;
@@ -222,7 +222,7 @@ li.current {
 		}, false);
 		document.addEventListener('keyup', function(event) {
 			var key = String.fromCharCode(event.which);
-			var t = keyTheres[keyboard.indexOf(key)];
+			var t = keyTheres[key];
 			if (t)
 				t.pause();
 		}, false);
