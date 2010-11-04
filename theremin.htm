@@ -11,7 +11,7 @@ li.current {
 	color: #ff0000;
 }
 </style>
-<script>
+<script type="text/javascript; version=1.8">
 (function() {
 	function Theremin(sampleRate) {
 		sampleRate = sampleRate | 0 || 44100;
@@ -144,11 +144,26 @@ li.current {
 	})();
 
 	// http://www.finetune.co.jp/~lyuka/technote/pinknoise/
-	var pinkNoise = (function() {
-		var random = Math.random;
-		var z, k, t;
+	function PinkNoise() {
+		this.init();
+	}
+	PinkNoise.prototype = let ({random} = Math) 0 || {
+		constructor: PinkNoise,
+		init: function init() {
+			var z = this._z = [];
+			var k = this._k = [];
+			this._t = 0;
 
-		function pinkNoise() {
+			for (var i = 0; i < 16; i++)
+				z[i] = 0;
+
+			k[15] = 0.5;
+			for (var i = 15; 0 < i; i--)
+				k[i - 1] = k[i]  * 0.25;
+		},
+		next: function next() {
+			var {_z: z, _k: k, _t: t} = this;
+
 			var q = random() < 0.5 ? 1 : -1;
 			for (var i = 0; i < 16; i++) {
 				z[i] = q * k[i] + z[i] * (1 - k[i]);
@@ -157,22 +172,8 @@ li.current {
 			t = q * 0.75 + t * 0.25;
 			return t < 1e-4 ? t * 1e4 : 1;
 		}
-		pinkNoise.init = function() {
-			z = [];
-			k = [];
-			t = 0;
-
-			for (var i = 0; i < 16; i++)
-				z[i] = 0;
-
-			k[15] = 0.5;
-			for (var i = 15; 0 < i; i--)
-				k[i - 1] = k[i]  * 0.25;
-		};
-		pinkNoise.init();
-
-		return pinkNoise;
-	})();
+	};
+	var pinkNoise = PinkNoise.prototype.next.bind(new PinkNoise());
 
 	document.addEventListener('DOMContentLoaded', function() {
 		var theremin = new Theremin();
@@ -193,8 +194,10 @@ li.current {
 		document.addEventListener('mouseup', function() {
 			theremin.pause();
 		}, false);
-		document.addEventListener('keypress', function(event) {
-			var index = event.which - 49;
+		document.addEventListener('keypress', function({ctrlKey, shiftKey, altKey, which}) {
+			if (ctrlKey || shiftKey || altKey) return;
+
+			var index = which - 49;
 			var waveForm = ['sin', 'tri', 'square', 'saw', 'white', 'pink', 'brown'][index];
 			if (!waveForm) return;
 
@@ -210,8 +213,10 @@ li.current {
 			t.frequency = Theremin.frequencies[4 + i / 12 | 0][i % 12];
 			keyTheres[keyboard[i]] = t;
 		}
-		document.addEventListener('keydown', function(event) {
-			var key = String.fromCharCode(event.which);
+		document.addEventListener('keydown', function({ctrlKey, shiftKey, altKey, which}) {
+			if (ctrlKey || shiftKey || altKey) return;
+
+			var key = String.fromCharCode(which);
 			var t = keyTheres[key];
 			if (!t || !t.paused) return;
 
